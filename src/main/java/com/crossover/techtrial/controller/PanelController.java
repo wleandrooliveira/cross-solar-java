@@ -5,10 +5,19 @@ import com.crossover.techtrial.model.HourlyElectricity;
 import com.crossover.techtrial.model.Panel;
 import com.crossover.techtrial.service.HourlyElectricityService;
 import com.crossover.techtrial.service.PanelService;
+
+
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.util.HashMap;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
+
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.ResponseEntity;
@@ -17,6 +26,13 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
+
+
+import static java.util.stream.Collectors.groupingBy;
+import static java.util.stream.Collectors.mapping;
+import static java.util.stream.Collectors.toList;
+
+
 
 /**
  * Panel Controller for all Rest APIs related to Panel.
@@ -55,6 +71,8 @@ public class PanelController {
   public ResponseEntity<?> saveHourlyElectricity(
       @PathVariable(value = "panel-serial") String panelSerial, 
       @RequestBody HourlyElectricity hourlyElectricity) {
+    Panel panel = panelService.findBySerial(panelSerial);
+    hourlyElectricity.setPanel(panel);
     return ResponseEntity.ok(hourlyElectricityService.save(hourlyElectricity));
   }
    
@@ -64,14 +82,13 @@ public class PanelController {
   
   @GetMapping(path = "/api/panels/{panel-serial}/hourly")
   public ResponseEntity<?> hourlyElectricity(
-      @PathVariable(value = "banel-serial") String panelSerial,
+      @PathVariable(value = "panel-serial") String panelSerial,
       @PageableDefault(size = 5,value = 0) Pageable pageable) {
     Panel panel = panelService.findBySerial(panelSerial);
     if (panel == null) {
       return ResponseEntity.notFound().build(); 
     }
-    Page<HourlyElectricity> page = hourlyElectricityService.getAllHourlyElectricityByPanelId(
-        panel.getId(), pageable);
+    Page<HourlyElectricity> page = hourlyElectricityService.getAllHourlyElectricityByPanelId(panel.getId(), pageable);
     return ResponseEntity.ok(page);
   }
   
@@ -81,15 +98,41 @@ public class PanelController {
    * @param panelSerial is unique serial for this Panel.
    * @return
    */
-  
+
   @GetMapping(path = "/api/panels/{panel-serial}/daily")
   public ResponseEntity<List<DailyElectricity>> allDailyElectricityFromYesterday(
-      @PathVariable(value = "panel-serial") String panelSerial) {
-    List<DailyElectricity> dailyElectricityForPanel = new ArrayList<>();
+          @PathVariable(value = "panel-serial") String panelSerial) {
+
     /**
      * IMPLEMENT THE LOGIC HERE and FEEL FREE TO MODIFY OR ADD CODE TO RELATED CLASSES.
      * MAKE SURE NOT TO CHANGE THE SIGNATURE OF ANY END POINT. NO PAGINATION IS NEEDED HERE.
      */
+
+    Panel panel = panelService.findBySerial(panelSerial);
+
+    List<HourlyElectricity> hourlyEletricity = hourlyElectricityService.findAllByPanelIdAndReadingAtLessThan(panel.getId(), LocalDate.now().atStartOfDay());
+
+    List<DailyElectricity> dailyElectricityForPanel = hourlyEletricity.stream()
+            .collect(groupingBy(g -> g.getReadingAt().toLocalDate(), toList()))
+            .entrySet().stream()
+            .map(entry -> {
+
+              DailyElectricity dailyElectricity = new DailyElectricity();
+              dailyElectricity.setDate(entry.getKey());
+
+              final Double sum = entry.getValue().stream().map(HourlyElectricity::getGeneratedElectricity).reduce(0L, Long::sum).doubleValue();
+              final Long min = entry.getValue().stream().map(HourlyElectricity::getGeneratedElectricity).min(Long::compareTo).orElse(0L);
+              final Long max = entry.getValue().stream().map(HourlyElectricity::getGeneratedElectricity).max(Long::compareTo).orElse(0L);
+
+              dailyElectricity.setAverage(sum / entry.getValue().size());
+              dailyElectricity.setSum(sum.longValue());
+              dailyElectricity.setMin(min);
+              dailyElectricity.setMax(max);
+
+              return dailyElectricity;
+            }).collect(toList());
+
     return ResponseEntity.ok(dailyElectricityForPanel);
   }
+
 }

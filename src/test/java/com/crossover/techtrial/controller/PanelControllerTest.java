@@ -81,21 +81,21 @@ public class PanelControllerTest {
   public void testPanelShouldGetHourlyElectricity() throws Exception {
     testPanelShouldBeRegistered();
     ResponseEntity<HourlyElectricity> response = template.getForEntity(
-            "/api/panel/1234567890123456/hourly", HourlyElectricity.class);
+            "/api/panels/1234567890123456/hourly", HourlyElectricity.class);
     Assert.assertEquals(200,response.getStatusCode().value());
   }
 
   @Test
   public void testPanelShouldNotGetHourlyElectricity() throws Exception {
     ResponseEntity<HourlyElectricity> response = template.getForEntity(
-            "/api/panel/1/hourly", HourlyElectricity.class);
+            "/api/panels/1/hourly", HourlyElectricity.class);
     Assert.assertEquals(404,response.getStatusCode().value());
   }
 
   @Test
   public void testPanelShouldGetAllDailyElectricityFromYesterday() throws Exception {
     ResponseEntity<DailyElectricity[]> response = template.getForEntity(
-            "/api/panel/1234567890123456/daily",  DailyElectricity[].class);
+            "/api/panels/1234567890123456/daily",  DailyElectricity[].class);
     DailyElectricity daily = response.getBody()[0];
     daily.toString();
     Assert.assertEquals(200,response.getStatusCode().value());
