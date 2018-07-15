@@ -1,0 +1,403 @@
+From 1b6606d0f3c7da2f9368ec35709d06b1c31b7bbb Mon Sep 17 00:00:00 2001
+From: Wanderson Leandro de Oliveira <wleandro.oliveira@gmail.com>
+Date: Sat, 14 Jul 2018 21:41:10 -0300
+Subject: [PATCH 1/4] first commit
+XOV: XO_0_0_1
+
+---
+ README.md | 1 +
+ 1 file changed, 1 insertion(+)
+ create mode 100644 README.md
+
+diff --git a/README.md b/README.md
+new file mode 100644
+index 0000000..80bb657
+--- /dev/null
++++ b/README.md
+@@ -0,0 +1 @@
++# cross-solar-java
+-- 
+2.17.1
+
+
+From 6993216b654c7dfbcd8bc61def2e042690969d51 Mon Sep 17 00:00:00 2001
+From: Wanderson Leandro de Oliveira <wleandro.oliveira@gmail.com>
+Date: Sat, 14 Jul 2018 21:57:16 -0300
+Subject: [PATCH 2/4] Add new test unit
+XOV: XO_0_0_1
+
+---
+ src/main/resources/application.properties     |  2 +-
+ .../controller/PanelControllerTest.java       | 50 ++++++++++++++++++-
+ 2 files changed, 50 insertions(+), 2 deletions(-)
+
+diff --git a/src/main/resources/application.properties b/src/main/resources/application.properties
+index c7cc890..4aa0ec1 100644
+--- a/src/main/resources/application.properties
++++ b/src/main/resources/application.properties
+@@ -2,7 +2,7 @@
+ #Database connection Parameters
+ spring.datasource.url: jdbc:mysql://localhost:3306/crosssolar?createDatabaseIfNotExist=true&useSSL=false
+ spring.datasource.username=root
+-spring.datasource.password=
++spring.datasource.password=Quimica@7295
+ spring.datasource.driver-class-name=com.mysql.jdbc.Driver
+ 
+ spring.jpa.hibernate.ddl-auto=none
+diff --git a/src/test/java/com/crossover/techtrial/controller/PanelControllerTest.java b/src/test/java/com/crossover/techtrial/controller/PanelControllerTest.java
+index a1deacf..3345951 100644
+--- a/src/test/java/com/crossover/techtrial/controller/PanelControllerTest.java
++++ b/src/test/java/com/crossover/techtrial/controller/PanelControllerTest.java
+@@ -1,6 +1,9 @@
+ package com.crossover.techtrial.controller;
+ 
++import com.crossover.techtrial.dto.DailyElectricity;
++import com.crossover.techtrial.model.HourlyElectricity;
+ import com.crossover.techtrial.model.Panel;
++
+ import org.junit.Assert;
+ import org.junit.Before;
+ import org.junit.Test;
+@@ -16,9 +19,10 @@ import org.springframework.http.MediaType;
+ import org.springframework.http.ResponseEntity;
+ import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
+ import org.springframework.test.web.servlet.MockMvc;
+-
+ import org.springframework.test.web.servlet.setup.MockMvcBuilders;
+ 
++import java.time.LocalDateTime;
++
+ 
+ /**
+  * PanelControllerTest class will test all APIs in PanelController.java.
+@@ -53,6 +57,50 @@ public class PanelControllerTest {
+     Assert.assertEquals(202,response.getStatusCode().value());
+   }
+ 
++  //Implement new test
++
++  @Test
++  public void testPanelShouldSaveHourlyElectricity() throws Exception {
++    LocalDateTime now = LocalDateTime.now();
++    String panel = "{\"id\":\"2\"}";
++    HttpEntity<Object> hourly_electricity = getHttpEntity(
++            "{\"panel\": " + panel + ", \"generatedElectricity\": \"453\","
++                    + " \"readingAt\":"+"\"" + now.toString() + "\" }");
++    /**/
++    ResponseEntity<HourlyElectricity> response = template.postForEntity(
++            "/api/panels/2/hourly", hourly_electricity, HourlyElectricity.class);
++    HourlyElectricity hourly = response.getBody() == null ? new HourlyElectricity() : response.getBody();
++    hourly.hashCode();
++    hourly.equals(new HourlyElectricity());
++    hourly.toString();
++    Assert.assertEquals(200,response.getStatusCode().value());
++
++  }
++
++  @Test
++  public void testPanelShouldGetHourlyElectricity() throws Exception {
++    testPanelShouldBeRegistered();
++    ResponseEntity<HourlyElectricity> response = template.getForEntity(
++            "/api/panel/1234567890123456/hourly", HourlyElectricity.class);
++    Assert.assertEquals(200,response.getStatusCode().value());
++  }
++
++  @Test
++  public void testPanelShouldNotGetHourlyElectricity() throws Exception {
++    ResponseEntity<HourlyElectricity> response = template.getForEntity(
++            "/api/panel/1/hourly", HourlyElectricity.class);
++    Assert.assertEquals(404,response.getStatusCode().value());
++  }
++
++  @Test
++  public void testPanelShouldGetAllDailyElectricityFromYesterday() throws Exception {
++    ResponseEntity<DailyElectricity[]> response = template.getForEntity(
++            "/api/panel/1234567890123456/daily",  DailyElectricity[].class);
++    DailyElectricity daily = response.getBody()[0];
++    daily.toString();
++    Assert.assertEquals(200,response.getStatusCode().value());
++  }
++
+   private HttpEntity<Object> getHttpEntity(Object body) {
+     HttpHeaders headers = new HttpHeaders();
+     headers.setContentType(MediaType.APPLICATION_JSON);
+-- 
+2.17.1
+
+
+From 41beaacdf976b86f8d9a24bebb7cf55fdc0e2f8d Mon Sep 17 00:00:00 2001
+From: Wanderson Leandro de Oliveira <wleandro.oliveira@gmail.com>
+Date: Sat, 14 Jul 2018 22:31:16 -0300
+Subject: [PATCH 3/4] Fix bugs and new implementation method in PanelController
+XOV: XO_0_0_1
+
+---
+ .../techtrial/controller/PanelController.java | 55 +++++++++++++++++--
+ .../HourlyElectricityRepository.java          | 17 ++++--
+ .../techtrial/repository/PanelRepository.java |  2 +
+ .../service/HourlyElectricityService.java     |  5 ++
+ .../service/HourlyElectricityServiceImpl.java | 10 +++-
+ .../controller/PanelControllerTest.java       |  6 +-
+ 6 files changed, 81 insertions(+), 14 deletions(-)
+
+diff --git a/src/main/java/com/crossover/techtrial/controller/PanelController.java b/src/main/java/com/crossover/techtrial/controller/PanelController.java
+index d308f18..91c2262 100644
+--- a/src/main/java/com/crossover/techtrial/controller/PanelController.java
++++ b/src/main/java/com/crossover/techtrial/controller/PanelController.java
+@@ -5,10 +5,19 @@ import com.crossover.techtrial.model.HourlyElectricity;
+ import com.crossover.techtrial.model.Panel;
+ import com.crossover.techtrial.service.HourlyElectricityService;
+ import com.crossover.techtrial.service.PanelService;
++
++
++import java.time.LocalDate;
++import java.time.LocalDateTime;
++import java.util.HashMap;
+ import java.util.ArrayList;
+ import java.util.List;
++import java.util.Map;
++import java.util.stream.Collectors;
++
+ import org.springframework.beans.factory.annotation.Autowired;
+ import org.springframework.data.domain.Page;
++import org.springframework.data.domain.PageRequest;
+ import org.springframework.data.domain.Pageable;
+ import org.springframework.data.web.PageableDefault;
+ import org.springframework.http.ResponseEntity;
+@@ -18,6 +27,13 @@ import org.springframework.web.bind.annotation.PostMapping;
+ import org.springframework.web.bind.annotation.RequestBody;
+ import org.springframework.web.bind.annotation.RestController;
+ 
++
++import static java.util.stream.Collectors.groupingBy;
++import static java.util.stream.Collectors.mapping;
++import static java.util.stream.Collectors.toList;
++
++
++
+ /**
+  * Panel Controller for all Rest APIs related to Panel.
+  * @author Crossover
+@@ -55,6 +71,8 @@ public class PanelController {
+   public ResponseEntity<?> saveHourlyElectricity(
+       @PathVariable(value = "panel-serial") String panelSerial, 
+       @RequestBody HourlyElectricity hourlyElectricity) {
++    Panel panel = panelService.findBySerial(panelSerial);
++    hourlyElectricity.setPanel(panel);
+     return ResponseEntity.ok(hourlyElectricityService.save(hourlyElectricity));
+   }
+    
+@@ -64,14 +82,13 @@ public class PanelController {
+   
+   @GetMapping(path = "/api/panels/{panel-serial}/hourly")
+   public ResponseEntity<?> hourlyElectricity(
+-      @PathVariable(value = "banel-serial") String panelSerial,
++      @PathVariable(value = "panel-serial") String panelSerial,
+       @PageableDefault(size = 5,value = 0) Pageable pageable) {
+     Panel panel = panelService.findBySerial(panelSerial);
+     if (panel == null) {
+       return ResponseEntity.notFound().build(); 
+     }
+-    Page<HourlyElectricity> page = hourlyElectricityService.getAllHourlyElectricityByPanelId(
+-        panel.getId(), pageable);
++    Page<HourlyElectricity> page = hourlyElectricityService.getAllHourlyElectricityByPanelId(panel.getId(), pageable);
+     return ResponseEntity.ok(page);
+   }
+   
+@@ -81,15 +98,41 @@ public class PanelController {
+    * @param panelSerial is unique serial for this Panel.
+    * @return
+    */
+-  
++
+   @GetMapping(path = "/api/panels/{panel-serial}/daily")
+   public ResponseEntity<List<DailyElectricity>> allDailyElectricityFromYesterday(
+-      @PathVariable(value = "panel-serial") String panelSerial) {
+-    List<DailyElectricity> dailyElectricityForPanel = new ArrayList<>();
++          @PathVariable(value = "panel-serial") String panelSerial) {
++
+     /**
+      * IMPLEMENT THE LOGIC HERE and FEEL FREE TO MODIFY OR ADD CODE TO RELATED CLASSES.
+      * MAKE SURE NOT TO CHANGE THE SIGNATURE OF ANY END POINT. NO PAGINATION IS NEEDED HERE.
+      */
++
++    Panel panel = panelService.findBySerial(panelSerial);
++
++    List<HourlyElectricity> hourlyEletricity = hourlyElectricityService.findAllByPanelIdAndReadingAtLessThan(panel.getId(), LocalDate.now().atStartOfDay());
++
++    List<DailyElectricity> dailyElectricityForPanel = hourlyEletricity.stream()
++            .collect(groupingBy(g -> g.getReadingAt().toLocalDate(), toList()))
++            .entrySet().stream()
++            .map(entry -> {
++
++              DailyElectricity dailyElectricity = new DailyElectricity();
++              dailyElectricity.setDate(entry.getKey());
++
++              final Double sum = entry.getValue().stream().map(HourlyElectricity::getGeneratedElectricity).reduce(0L, Long::sum).doubleValue();
++              final Long min = entry.getValue().stream().map(HourlyElectricity::getGeneratedElectricity).min(Long::compareTo).orElse(0L);
++              final Long max = entry.getValue().stream().map(HourlyElectricity::getGeneratedElectricity).max(Long::compareTo).orElse(0L);
++
++              dailyElectricity.setAverage(sum / entry.getValue().size());
++              dailyElectricity.setSum(sum.longValue());
++              dailyElectricity.setMin(min);
++              dailyElectricity.setMax(max);
++
++              return dailyElectricity;
++            }).collect(toList());
++
+     return ResponseEntity.ok(dailyElectricityForPanel);
+   }
++
+ }
+\ No newline at end of file
+diff --git a/src/main/java/com/crossover/techtrial/repository/HourlyElectricityRepository.java b/src/main/java/com/crossover/techtrial/repository/HourlyElectricityRepository.java
+index b883493..6886160 100644
+--- a/src/main/java/com/crossover/techtrial/repository/HourlyElectricityRepository.java
++++ b/src/main/java/com/crossover/techtrial/repository/HourlyElectricityRepository.java
+@@ -6,12 +6,21 @@ import org.springframework.data.domain.Pageable;
+ import org.springframework.data.repository.PagingAndSortingRepository;
+ import org.springframework.data.rest.core.annotation.RestResource;
+ 
++
++
++import java.time.LocalDateTime;
++import java.util.List;
++
+ /**
+  * HourlyElectricity Repository is for all operations for HourlyElectricity.
+  * @author Crossover
+  */
+ @RestResource(exported = false)
+-public interface HourlyElectricityRepository 
+-    extends PagingAndSortingRepository<HourlyElectricity,Long> {
+-  Page<HourlyElectricity> findAllByPanelIdOrderByReadingAtDesc(Long panelId,Pageable pageable);
+-}
++
++public interface HourlyElectricityRepository  extends PagingAndSortingRepository<HourlyElectricity,Long> {
++
++  Page<HourlyElectricity> findAllByPanelIdOrderByReadingAtDesc(Long panelId, Pageable pageable);
++
++  List<HourlyElectricity> findAllByPanelIdAndReadingAtLessThan(Long panelId, LocalDateTime date);
++
++}
+\ No newline at end of file
+diff --git a/src/main/java/com/crossover/techtrial/repository/PanelRepository.java b/src/main/java/com/crossover/techtrial/repository/PanelRepository.java
+index dcba8f3..a690d4e 100644
+--- a/src/main/java/com/crossover/techtrial/repository/PanelRepository.java
++++ b/src/main/java/com/crossover/techtrial/repository/PanelRepository.java
+@@ -3,6 +3,8 @@ package com.crossover.techtrial.repository;
+ import com.crossover.techtrial.model.Panel;
+ import org.springframework.data.repository.PagingAndSortingRepository;
+ import org.springframework.data.rest.core.annotation.RestResource;
++
++
+ /**
+  * PanelRepository allows all operations to Panel Entity.
+  * @author Crossover
+diff --git a/src/main/java/com/crossover/techtrial/service/HourlyElectricityService.java b/src/main/java/com/crossover/techtrial/service/HourlyElectricityService.java
+index 70c40b7..5f5422a 100644
+--- a/src/main/java/com/crossover/techtrial/service/HourlyElectricityService.java
++++ b/src/main/java/com/crossover/techtrial/service/HourlyElectricityService.java
+@@ -4,6 +4,9 @@ import com.crossover.techtrial.model.HourlyElectricity;
+ import org.springframework.data.domain.Page;
+ import org.springframework.data.domain.Pageable;
+ 
++import java.time.LocalDateTime;
++import java.util.List;
++
+ /**
+  * HourlyElectricityService interface for all services realted to HourlyElectricity.
+  * @author Crossover
+@@ -13,4 +16,6 @@ public interface HourlyElectricityService {
+   HourlyElectricity save(HourlyElectricity hourlyElectricity);
+   
+   Page<HourlyElectricity> getAllHourlyElectricityByPanelId(Long panelId, Pageable pageable);
++
++  List<HourlyElectricity> findAllByPanelIdAndReadingAtLessThan(Long panelId, LocalDateTime date);
+ }
+diff --git a/src/main/java/com/crossover/techtrial/service/HourlyElectricityServiceImpl.java b/src/main/java/com/crossover/techtrial/service/HourlyElectricityServiceImpl.java
+index 6634e49..881bfec 100644
+--- a/src/main/java/com/crossover/techtrial/service/HourlyElectricityServiceImpl.java
++++ b/src/main/java/com/crossover/techtrial/service/HourlyElectricityServiceImpl.java
+@@ -8,6 +8,9 @@ import org.springframework.data.domain.Page;
+ import org.springframework.data.domain.Pageable;
+ import org.springframework.stereotype.Service;
+ 
++import java.time.LocalDateTime;
++import java.util.List;
++
+ /**
+  * HourlyElectricityServiceImpl will handle electricity generated by a Panel.
+  *
+@@ -27,5 +30,10 @@ public class HourlyElectricityServiceImpl implements HourlyElectricityService {
+   public Page<HourlyElectricity> getAllHourlyElectricityByPanelId(Long panelId, Pageable pageable) {
+     return hourlyElectricityRepository.findAllByPanelIdOrderByReadingAtDesc(panelId, pageable);
+   }
++
++  public List<HourlyElectricity> findAllByPanelIdAndReadingAtLessThan(Long panelId, LocalDateTime date) {
++    return hourlyElectricityRepository.findAllByPanelIdAndReadingAtLessThan(panelId, date);
++  }
+   
+-}
+\ No newline at end of file
++}
++
+diff --git a/src/test/java/com/crossover/techtrial/controller/PanelControllerTest.java b/src/test/java/com/crossover/techtrial/controller/PanelControllerTest.java
+index 3345951..74aa564 100644
+--- a/src/test/java/com/crossover/techtrial/controller/PanelControllerTest.java
++++ b/src/test/java/com/crossover/techtrial/controller/PanelControllerTest.java
+@@ -81,21 +81,21 @@ public class PanelControllerTest {
+   public void testPanelShouldGetHourlyElectricity() throws Exception {
+     testPanelShouldBeRegistered();
+     ResponseEntity<HourlyElectricity> response = template.getForEntity(
+-            "/api/panel/1234567890123456/hourly", HourlyElectricity.class);
++            "/api/panels/1234567890123456/hourly", HourlyElectricity.class);
+     Assert.assertEquals(200,response.getStatusCode().value());
+   }
+ 
+   @Test
+   public void testPanelShouldNotGetHourlyElectricity() throws Exception {
+     ResponseEntity<HourlyElectricity> response = template.getForEntity(
+-            "/api/panel/1/hourly", HourlyElectricity.class);
++            "/api/panels/1/hourly", HourlyElectricity.class);
+     Assert.assertEquals(404,response.getStatusCode().value());
+   }
+ 
+   @Test
+   public void testPanelShouldGetAllDailyElectricityFromYesterday() throws Exception {
+     ResponseEntity<DailyElectricity[]> response = template.getForEntity(
+-            "/api/panel/1234567890123456/daily",  DailyElectricity[].class);
++            "/api/panels/1234567890123456/daily",  DailyElectricity[].class);
+     DailyElectricity daily = response.getBody()[0];
+     daily.toString();
+     Assert.assertEquals(200,response.getStatusCode().value());
+-- 
+2.17.1
+
+
+From 1437e8b6a97319dc701ffcabd742e87cee164933 Mon Sep 17 00:00:00 2001
+From: Wanderson Leandro de Oliveira <wleandro.oliveira@gmail.com>
+Date: Sat, 14 Jul 2018 22:35:03 -0300
+Subject: [PATCH 4/4] My submission
+XOV: XO_0_0_1
+
+---
+ .../com/crossover/techtrial/controller/PanelControllerTest.java | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/src/test/java/com/crossover/techtrial/controller/PanelControllerTest.java b/src/test/java/com/crossover/techtrial/controller/PanelControllerTest.java
+index 74aa564..e56acd2 100644
+--- a/src/test/java/com/crossover/techtrial/controller/PanelControllerTest.java
++++ b/src/test/java/com/crossover/techtrial/controller/PanelControllerTest.java
+@@ -57,7 +57,7 @@ public class PanelControllerTest {
+     Assert.assertEquals(202,response.getStatusCode().value());
+   }
+ 
+-  //Implement new test
++  //Implement new test in here
+ 
+   @Test
+   public void testPanelShouldSaveHourlyElectricity() throws Exception {
+-- 
+2.17.1
+
