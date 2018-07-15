@@ -57,7 +57,7 @@ public class PanelControllerTest {
     Assert.assertEquals(202,response.getStatusCode().value());
   }
 
-  //Implement new test
+  //Implement new test in here
 
   @Test
   public void testPanelShouldSaveHourlyElectricity() throws Exception {
